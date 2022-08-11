@@ -1,0 +1,44 @@
+import csv # 엑셀 파일로 정리 해주기 위한 모듈
+import re  # 정규식 써주기 위한 모듈
+import requests
+from bs4 import BeautifulSoup
+
+# 주어진 링크 가져오기
+url = "https://store.steampowered.com/specials#p=" 
+
+filename = "스팀게임할인.csv"
+# "w" -> 쓰기 모드 / utf-8-sig 는 엑셀로 옮길 때 한글 깨짐 현상 복구 / 데이터 띄어쓰기 없이
+f = open(filename, "w", encoding="utf-8-sig", newline="") 
+writer = csv.writer(f)
+
+title = "게임 이름,할인율,원가,할인 후 가격,게임장르".split(",")
+writer.writerow(title)
+
+# User-Agent 쓰는 이유 서버에서 봇으로 인지하고 정보를 주지 않을 때가 있어 접속하는 사람에 대한 정보를 준다.
+headers = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"}
+
+# 내가 보낸 request 객체에 접근 가능
+res = requests.get(url, headers=headers)
+res.raise_for_status() # 200 OK 코드가 아닌 경우 에러 발동
+
+# lxml은 구문을 분석해 주는 파서
+soup = BeautifulSoup(res.text, "lxml")
+
+
+games = soup.find_all("a", attrs={"class":re.compile("^tab_item")})
+
+# enumerate를 통해 인덱스와 원소를 동시에 돌릴 수 있다
+for idx, game in enumerate(games):
+    # get_text() 자신을 포함한 하위 태그 제거하고 유니코드 텍스트만 남긴다
+    name = game.find("div", attrs={"class":"tab_item_name"}).get_text() # 게임 명
+    per = game.find("div", attrs={"class":"discount_pct"}).get_text()# 가격 할인율        
+    price = game.find("div", attrs={"class":"discount_original_price"}).get_text() # 할인 전 가격
+    disprice = game.find("div", attrs={"class":"discount_final_price"}).get_text() # 할인 후 가격
+    genre = game.find("div", attrs={"class":"tab_item_top_tags"}).get_text() # 게임 장르
+
+    if (idx >= 15 and idx <= 29):
+        # 엑셀로 옮기기 위해 리스트로 만들어 준다.
+        data = [name, per, price, disprice, genre]
+        writer.writerow(data)
+
+        
